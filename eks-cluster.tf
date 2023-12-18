@@ -1,4 +1,4 @@
-module "my-cluster" {
+module "wordpressCL" {
   source  = "terraform-aws-modules/eks/aws"
   version = "18.28.0"
 
