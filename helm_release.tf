@@ -4,7 +4,7 @@ resource "helm_release" "wordpress" {
   chart      = "wordpress"
 
   values = [
-    "${file("wordpress-values.yaml")}"
+    "${file("terraform.tfvars")}"
   ]
 
   set_sensitive {
