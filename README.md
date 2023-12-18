@@ -1,4 +1,4 @@
-requisites
+# Prerequisites
 
 * Terraform CLI installed 
 * AWS credentials configured.
