@@ -1,6 +1,6 @@
-# ------------------------------------------------------------
+# Variables value for aws resources 
+
 # wordpress
-# ------------------------------------------------------------
 variable "wordpress_admin_user" {
   type        = string
   description = "Admin user of the wordpress Application."
@@ -12,9 +12,8 @@ variable "wordpress_admin_password" {
   description = "Admin password of the wordpress Application."
   default     = "admin"
 }
-# ------------------------------------------------------------
+
 # EKS Cluster
-# ------------------------------------------------------------
 variable "cluster_name" {
   type        = string
   description = "The name of the EKS cluster."
@@ -62,9 +61,8 @@ variable "create_cluster_primary_security_group_tags" {
   type        = bool
   default     = true
 }
-# ------------------------------------------------------------
+
 # Networking
-# ------------------------------------------------------------
 variable "aws_region" {
   type        = string
   description = "The AWS region for the provider to deploy resources into."
