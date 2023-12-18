@@ -1,0 +1,115 @@
+name: Deploy WordPress
+run-name: Deploy ${{ github.event.inputs.branch_type }}/${{ github.event.inputs.branch_name }} to ${{ github.event.inputs.env }}
+on: 
+  workflow_dispatch:
+    inputs:
+      env:
+        type: choice
+        description: Where to deploy
+        options: 
+        - dev
+        - preprod
+        - prod
+      branch_type:
+        type: choice
+        description: What branch we deploy
+        options: 
+        - release
+        - feature
+        - hotfix
+      branch_name:
+        description: Release/feature/hotfix number
+      with_wordpress:
+        type: boolean
+        default: 'true'
+      release:
+        description: Release number
+      terrafrom_cmd:
+        type: choice
+        description: Terrafrom Command
+        options: 
+        - apply
+        - destroy
+      #first_cleanup:
+        #type: boolean
+        #default: 'true'
+  
+jobs:
+  #Cleanup_first:
+   #runs-on: git_action_server
+   #environment: ${{ github.event.inputs.env }}
+    
+    env: 
+      PRIVATE_KEY: ${{ secrets.AWS_EC2_KEY  }}
+      HOSTNAME : ${{ secrets.HOSTNAME  }}
+      USER_NAME : ${{ secrets.USER_NAME  }}
+      RELEASE: ${{ github.event.inputs.release }}
+    steps:
+    - name: Clean up before checkout
+      id: cleanup_first
+      if: ${{ github.event.inputs.first_cleanup == 'true' }}
+      run: |
+          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+          ssh -o StrictHostKeyChecking=no -i private_key $USER_NAME@$HOSTNAME "
+          
+            #Now we have got the access of EC2 and we will start cleaning.
+            sudo -H -u wordpress_user bash -c 'cd /git/wordpress && 
+                                      git fetch &&
+                                      git stash'"
+  Checkout:
+    runs-on: git_action_server
+    environment: ${{ github.event.inputs.env }}
+    needs: Cleanup_first
+    env: 
+      PRIVATE_KEY: ${{ secrets.AWS_EC2_KEY  }}
+      HOSTNAME : ${{ secrets.HOSTNAME  }}
+      USER_NAME : ${{ secrets.USER_NAME  }}
+      BRANCH: ${{ github.event.inputs.branch_name }}
+      RELEASE: ${{ github.event.inputs.release }}
+    steps:
+    - name: Check out code
+      id: checkout
+      run: |
+          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+          ssh -o StrictHostKeyChecking=no -i private_key $USER_NAME@$HOSTNAME "
+          
+            #Now we have got the access of EC2 and we will start the deploy .
+            sudo -H -u wordpress_user bash -c 'echo $RELEASE &&
+                                      cd /git/wordpress && 
+                                      git checkout ${{ github.event.inputs.branch_type }}/${{ github.event.inputs.branch_name }} && 
+                                      git pull'"
+  wordpress:
+    runs-on: git_action_server
+    environment: ${{ github.event.inputs.env }}
+    needs: Checkout
+    env: 
+      PRIVATE_KEY: ${{ secrets.AWS_EC2_KEY  }}
+      HOSTNAME : ${{ secrets.HOSTNAME  }}
+      USER_NAME : ${{ secrets.USER_NAME  }}
+      RELEASE: ${{  github.event.inputs.release }}
+    steps:
+    - name: Terraform Plan
+      id: plan
+      working-directory: ./terraform
+      run: |
+          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+          ssh -o StrictHostKeyChecking=no -i private_key $USER_NAME@$HOSTNAME "
+          
+          sudo -H -u wordpress_user bash -c 'cd /git/wordpress && 
+                                      chmod 755 -R /git/wordpress &&
+				      /usr/local/lib/terraform plan &&    
+      
+    - name: Run wordpress update
+      id: wordpress
+      if: ${{ github.event.inputs.with_wordpress == 'true' }}
+      run: |
+          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+          ssh -o StrictHostKeyChecking=no -i private_key $USER_NAME@$HOSTNAME "
+          
+            #Now we have got the access of EC2 and we will run the wordpress.
+            sudo -H -u wordpress_user bash -c 'cd /git/wordpress && 
+                                      chmod 755 -R /git/wordpress &&
+				      /usr/local/lib/terrafrom init &&
+				      /usr/local/lib/terraform plan 
+				        [[ $? -eq 0 ]] echo "Error during terrafrom plan" && exit 1 || 
+                                      /usr/local/lib/terrafrom ${{ github.event.inputs.wordpress_cmd }} -auto-approve'"
